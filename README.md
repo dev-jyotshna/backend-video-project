@@ -50,3 +50,28 @@ npm i -D nodemon
 ```bash
 md controllers db middlewares routes utils
 ```
+- install and set up prettier package to have the dev contributors on the same page
+- install teh dev dependancy with
+```bash
+npm i -D prettier
+```
+- add manual files for prettier package to work named ".prettierrc", for its configurations
+```js
+{
+    "singleQuote": false,
+    "bracketSpacing": true,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "semi": true
+}
+```
+- manual file named ".prettierignore"
+```js
+/.vscode
+/node_modules
+./dist
+
+*.env
+.env
+.env*
+```
