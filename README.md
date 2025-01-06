@@ -39,3 +39,14 @@ npm i -D nodemon
 ```
 - dotenv package install, to use variables in .env files in the modules mentioned as type in package.json
 - when using the dotenv package we always use the require syntax instaed of import syntax, we resolve this below
+- in src folder we make new folders
+    - controllers : for functionalities
+    - db : how to connect to database
+    - middlewares : code that run in-between, request to the server -> check on the request before request goes to the server, check goes in middleware like cookies
+    - models 
+    - routes : standard approaches
+    - utils: many utilities needed like file upload, mailing(repeated functionality, needed in different places within the project)
+    "mkdir controllers db middlewares routes utils" in command prompt
+```bash
+md controllers db middlewares routes utils
+```
