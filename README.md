@@ -75,3 +75,109 @@ npm i -D prettier
 .env
 .env*
 ```
+
+## Database connection
+- mongodb
+- mongodb atlas subservice
+- create cluster in new project youtube
+- network connection ip address 0.0.0.0/0 caution not for actual service
+- create user named jyotshna for database with role as read and write
+- add PORT and MONGODB_URI in .env file
+- add below code in constants.js
+```js
+export const DB_NAME = "videotube"
+```
+- Two ways for db connection
+  - since index.js gets executed with nodemon, we keep the function with the db connection code into the index.js
+  - create a file in a folder named db , then import that function with db connection into the index.js file(modular code better approach)
+- app.js through express
+- db connection through mongoose
+- install packages
+```bash
+npm i mongoose express dotenv
+```
+1. When doing database connection wrap it in try catch or in promises, as there are chances that it will give error
+2. Database is always in another continent, codebase can and will be stored in anywhere across the world. Loading takes time so always use async await.
+
+- DB connection using iify(immediately executing function)
+
+- code for 1st approach
+```js
+import mongoose from "mongoose"
+import { DB_NAME } from "./constants"
+
+import express from "express"
+const app = express()
+
+( async () => {
+    try {
+        await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`)
+        app.on("errror", (error) => {
+            console.log("ERRR: ", error);
+            throw error
+        })
+
+        app.listen(process.env.PORT, () => {
+            console.log(`App is listening on port ${process.env.PORT}`)
+        })
+
+    } catch (error) {
+        console.error("ERROR: ", error)
+        throw error
+    }
+})()
+```
+
+- code for 2nd approach
+- node gives access of the process
+- add below code in db/index.js
+```js
+import mongoose from "mongoose";
+import { DB_NAME } from "../constants";
+
+const connectDB = async () => {
+    try {
+        const connectionInstance = await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`)
+        console.log(`\n MongoDB connected !! DB HOST: ${connectionInstance.connection.host}`);
+        
+    } catch (error) {
+        console.log("MONGODB connection error: ", error);
+        process.exit(1)
+    }
+}
+
+export default connectDB
+```
+- add below code in open index.js(This works but shows inconsistency in code)
+```js
+require('dotenv').config({path: './env'})
+import connectDB from "./db"
+
+connectDB()
+```
+- TO resolve this inconsistency we use and using experimental feature to load environment variable using dotenv in package.json
+```js
+import dotenv from "dotenv"
+import connectDB from "./db"
+
+dotenv.config({
+    path: './env'
+})
+
+connectDB()
+```
+```json
+  "scripts": {
+    "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js"
+  }
+```
+- now to run the app, we got some error (while importing connectDB in open index.js, it is not able to implement db/index.js file's connectDB function , so we add `import connectDB from "./db/index.js"` in open index.js) => here putting .js ext is very important to resolve this issue 
+```bash 
+npm run dev
+```
+- needed to get newer version of node for the script to run successfully, add below code in paackage.json instead of above code that one doesn't run the app successfully
+```json
+"script": {
+  "dev": "nodemon --env-file=.env src/index.js"
+}
+```
