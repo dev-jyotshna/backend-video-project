@@ -340,3 +340,320 @@ class ApiResponse {
 }
 ```
 - whenever an error comes it needs to go through ApiError everytime, to do this we need to make a middleware
+
+## User and video model w hooks aand JWT
+- make a folder named models in src folder, Create a file named user.model.js, video.model.js
+- mongodb stores data in bson(used for storing data, binary) and generates a unique id for every entry,(json used for data exchanges between systems, text)
+- In user model, we will use thrid-party serice(cloudinary) for avatar and coverImage to get a url as string to be stored in the database
+- In video model, we will use that same third-party service for videoFile and thumbnail.
+- to make a field optimised searchable make into index : true in any database especially in mongodb
+- to encrypt the password before storing in database
+- password
+- token
+- add below code in user.model.js
+```js
+import mongoose, {Schema} from "mongoose";
+
+const userSchema = new Schema(
+    {
+        username: {
+            type: String,
+            required: true,
+            unique: true,
+            lowercase: true,
+            trim: true,
+            index: true
+        },
+        email: {
+            type: String,
+            required: true,
+            unique: true,
+            lowercase: true,
+            trim: true
+        },
+        fullname: {
+            type: String,
+            required: true,
+            trim: true,
+            index: true
+        },
+        avatar: {
+            type: String, //cloudinary url
+            required: true
+        },
+        coverImage: {
+            type: String //cloudinary url
+        },
+        watchHistory: [
+            {
+                type: Schema.Types.ObjectId,
+                ref: "Video"
+            }
+        ],
+        password: {
+            type: String,
+            required: [true, "Passord is required"]
+        },
+        refreshToken: {
+            type: String
+        }
+    }, {timestamps: true}
+)
+
+export const User = mongoose.model("User", userSchema)
+```
+- add below code in video.model.js
+```js
+import mongoose, {Schema} from "mongoose";
+
+const videoSchema = new Schema(
+    {
+        videoFile: {
+            type: String, //cloudinary url
+            required: true
+        },
+        thumbnail: {
+            type: String, //cloudinary url
+            required: true
+        },
+        owner: {
+            type: Schema.Types.ObjectId,
+            ref: "User"
+        },
+        title: {
+            type: String,
+            required: true,
+
+        },
+        description: {
+            type: String,
+            required: true,
+        },
+        duration: {
+            type: Number,
+            required: true
+        },
+        views: {
+            type: Number,
+            default: 0
+        },
+        isPublished: {
+            type: Boolean,
+            default: true
+        }
+    }, {timestamps: true}
+)
+
+export const Video = mongoose.model("Video", videoSchema)
+```
+- Since the projects get complecated with the attribute watchHistory we use a package named "mongoose-aggregate-paginate-v2" allows us to use aggregation queries, in mongoose we do the insert many, update many
+- Many more learning from [mongodb aggregation pipeline ](https://www.mongodb.com/docs/manual/core/aggregation-pipeline/)
+- "npm i mongoose-aggregate-paginate-v2" on terminal
+- for middleware mongoose gives a lot [things](https://mongoosejs.com/docs/middleware.html) and videoSchema.plugin that i can use to add my own plugins, here i can use the mongooseAggregationPaginate for aggregation queries
+- this aggregation pipeline makes te project so complex
+- use it in src/models/video.model.js
+```js
+import mongoose, {Schema} from "mongoose";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+
+const videoSchema = new Schema(
+    {
+        videoFile: {
+            type: String, //cloudinary url
+            required: true
+        },
+        thumbnail: {
+            type: String, //cloudinary url
+            required: true
+        },
+        owner: {
+            type: Schema.Types.ObjectId,
+            ref: "User"
+        },
+        title: {
+            type: String,
+            required: true,
+
+        },
+        description: {
+            type: String,
+            required: true,
+        },
+        duration: {
+            type: Number,
+            required: true
+        },
+        views: {
+            type: Number,
+            default: 0
+        },
+        isPublished: {
+            type: Boolean,
+            default: true
+        }
+    }, {timestamps: true}
+)
+videoSchema.plugin(mongooseAggregatePaginate)
+
+export const Video = mongoose.model("Video", videoSchema)
+```
+- use bcryptjs and jsonwebtoken npm packages for encrypting and hashing the password attribute in user.model.js
+- npm i bcrypt jsonwebtoken
+- import both into user.model.js
+- we can't do direct encryption so we use some mongoose middleware hooks names pre => just before saving the data(before middleware calls next), this hook(fn with some code) can be used just before it
+- Like ecrypting the password in the pre hook 
+- It is used just like the plugin hook in video.model.js 
+- the hook uses the events mentioned in [moongoose Middleware](https://mongoosejs.com/docs/middleware.html)
+- Events
+    - validate
+    - save
+    - updateOne
+    - deleteOne
+    - init (note: init hooks are synchronous)
+- Not using the callback fn as arrow fn becuase arrow fn does not know about the context meaning it doesn't know about the reference of "this"
+- here knowing context is very important as we have to know which user we are dealing with for "save" event/method.
+- Since encryption function takes time to encrypt we use async 
+- Middleware needs next flag, work done so at the end we call the next flag
+- in src/models/user.model.js
+```js
+userSchema.pre("save", async function(next) {
+    this.password = bcrypt.hash(this.password, 10)
+    next()
+})
+
+export const User = mongoose.model("User", userSchema)
+```
+- Here an issue is introduced, whenever a user saves after updating some field the password always change
+- What to do: only change password when a password modification is sent, then only this code should be run. Use cases: new password, update password
+- Solution : 
+```js
+userSchema.pre("save", async function(next) {
+    if(!this.isModified("password")) return next
+
+    this.password = bcrypt.hash(this.password, 10)
+    next()
+})
+
+export const User = mongoose.model("User", userSchema)
+```
+- bcrypt does a lot of behind-the-scenes things, we need to use some methods to check from the user that the password is correct or not, for that mongoose provides the methods to be injected, like updateOne, deleteOne
+- I can design some customs methods to work with too
+- userSchema has an object named "methods"
+- bscrypt can hash the pasword and check the password too with fn compare.
+- since encryption takes time we use await
+```js
+userSchema.pre("save", async function(next) {
+    if(!this.isModified("password")) return next
+
+    this.password = bcrypt.hash(this.password, 10)
+    next()
+})
+
+userSchema.methods.isPasswordCorrect = async function(password){
+    return await bcrypt.compare(password, this.password)
+}
+
+export const User = mongoose.model("User", userSchema)
+```
+
+- Working with jwt bearer token => Asked in Interviews
+- Bearer token meaning that whoever bears it accepts it as valid i.e whoever has this token/ whoever sends this token to me, I will send them the data, Like a key, so do not lose the key and use it carefully
+- This token provides strong security
+- JWT needs some variables to provide these token.
+- These ACCESS_TOKEN_SECRET are mainly found in ".env" file that will be used in jwt tokens
+- In production grade packages these secret strings are generated complexly, they can be generated with algos like sha 256, random and many more
+- ACCESS_TOKEN_EXPIRY=1d
+- REFRESH_TOKEN_SECRET
+- REFRESH_TOKEN_EXPIRY=10d
+- Since we are using both sessions and cookies, so access token will not be stored in the database but the refresh token WILL be stored
+- Now we can generate the access token and refresh token within the user.model.js:
+```js
+import mongoose, {Schema} from "mongoose";
+import jwt from "jsonwebtoken"
+import bcrypt from "bcrypt"
+
+const userSchema = new Schema(
+    {
+        username: {
+            type: String,
+            required: true,
+            unique: true,
+            lowercase: true,
+            trim: true,
+            index: true
+        },
+        email: {
+            type: String,
+            required: true,
+            unique: true,
+            lowercase: true,
+            trim: true
+        },
+        fullname: {
+            type: String,
+            required: true,
+            trim: true,
+            index: true
+        },
+        avatar: {
+            type: String, //cloudinary url
+            required: true
+        },
+        coverImage: {
+            type: String //cloudinary url
+        },
+        watchHistory: [
+            {
+                type: Schema.Types.ObjectId,
+                ref: "Video"
+            }
+        ],
+        password: {
+            type: String,
+            required: [true, "Passord is required"]
+        },
+        refreshToken: {
+            type: String
+        }
+    }, {timestamps: true}
+)
+
+userSchema.pre("save", async function(next) {
+    if(!this.isModified("password")) return next
+
+    this.password = bcrypt.hash(this.password, 10)
+    next()
+})
+
+userSchema.methods.isPasswordCorrect = async function(password){
+    return await bcrypt.compare(password, this.password)
+}
+
+userSchema.methods.generateAccessToken = function(){
+    return jwt.sign(
+        {
+            _id: this._id,
+            email: this.email,
+            username: this.username,
+            fullname: this.fullname
+        },
+        process.env.ACCESS_TOKEN_SECRET,
+        {
+            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+        }
+    )
+}
+userSchema.methods.generateRefreshToken = function(){
+    return jwt.sign(
+        {
+            _id: this._id
+        },
+        process.env.REFRESH_TOKEN_SECRET,
+        {
+            expiresIn: process.env.REFRESH_TOKEN_EXPIRY
+        }
+    )
+}
+
+export const User = mongoose.model("User", userSchema)
+```
