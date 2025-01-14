@@ -657,3 +657,126 @@ userSchema.methods.generateRefreshToken = function(){
 
 export const User = mongoose.model("User", userSchema)
 ```
+
+## File upload in backend
+- fronted does not have access to do the file upload, it cn only do : making a form, can browse a file and can give you its link while submitting thats it.
+- The tech stack that we are using like express does not have direct file uploading capabilities
+- Most of the file handling is not done on in-house servers, especially in today's production grade things
+- For that, either a third-party service is used or AWS upload.
+- How to handle it is a professional thing, files may not come in every endpoint, it may come in register, not in login.
+- Making it a utility is better for reusing it. And can be used as middleware.
+- Cloudinary , express-fileupload npm package, multer and express-fileupload is almost same
+- npm i cloudinary
+- npm i multer
+- user will upload a file through multer on cloudinary
+- we take the file from user through multer(middleware for file access) and put it our local server temporarily, for the next step, we take that file from the local server and upload it on the server using cloudinary(function call)
+- Why the need to two steps? we can directly upload file to the server through multer using cloudinary
+    - Yes we can but it is better in case of reattempting the steps if the file is first uploaded on local server.
+- write the code in src/utils/couldinary.js , file name also be fileupload.js and this code is REUSEABLE
+- after uploading file on the server a file path is given to us of the file that is on the server to put it on cloudinary
+- after successfully uploading the file on the cloudinary, the file will be removed from the server as it is now not needed
+- file open, read, sync, remove using fs package in nodejs it needs file path
+- link is removed w/o affecting the file or directory[about it](https://nodejs.org/api/fs.html#fspromisesunlinkpath) to reomve the file from the server
+- take the configurationn from cloudinary console and add the api_secret in .env file after
+- configuration gives the permission for file upload
+- refresh_token
+```
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+```
+- add configure in src/utils/couldinary.js and make a method that takes path of file as a parameter and if successfully uploaded it will unlink the file
+```js
+import {v2 as cloudinary} from "cloudinary"
+import fs from "fs"
+
+(async function() {
+
+    // Configuration
+    cloudinary.config({ 
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+        api_key: process.env.CLOUDINARY_API_KEY, 
+        api_secret: process.env.CLOUDINARY_API_SECRET
+    });   
+})();
+
+const uploadOnCloudinary = async (localFilePath) => {
+    try {
+        if (!localFilePath) return null
+        //upload the file on cloudinary 
+        const response = await cloudinary.uploader.upload(localFilePath, {
+            resource_type: "auto"
+        })
+        // file has been uploaded successfully
+        console.log("File is uploaded on cloudinary", response.url)
+        return response;
+    } catch (error) {
+        
+    }
+}
+```
+- file not uploaded successfully or try code mistake for catch
+- If anyone is using cloudinary means that at least the file is on the server, since it has not been uploaded so there is an issue somewhere
+- So for a safe cleaning purpose , that file should be removed from the server , if not many corrupted/ malicious files will remain of the server.
+- using the fs.unlink in the catch in src/utils/cloudinary.js
+```js
+import {v2 as cloudinary} from "cloudinary"
+import fs from "fs"
+
+(async function() {
+
+    // Configuration
+    cloudinary.config({ 
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+        api_key: process.env.CLOUDINARY_API_KEY, 
+        api_secret: process.env.CLOUDINARY_API_SECRET
+    });   
+})();
+
+const uploadOnCloudinary = async (localFilePath) => {
+    try {
+        if (!localFilePath) return null
+        //upload the file on cloudinary 
+        const response = await cloudinary.uploader.upload(localFilePath, {
+            resource_type: "auto"
+        })
+        // file has been uploaded successfully
+        console.log("File is uploaded on cloudinary", response.url)
+        return response;
+    } catch (error) {
+        fs.unlinkSync(localFilePath) //remove the locally saved temporary file as the upload operation got failed
+        return null
+    }
+}
+
+export {uploadOnCloudinary}
+```
+- The code can be debugged when we actually register the first model of user
+- Now we will write controllers since models are ready, we will write register, login, logout, file uploading.
+- Work on CLOUDINARY is done
+- Now we will write some middlewares using multer (writing them directly is still is an option)
+- wherever we will need file upload capabilities , I will inject multer there.
+- Cloudinary is like a utility 
+- Now We will need to configure middleware  and how to write basic multer functionality.
+- create a file src/middlewares/multer.middleware.js
+- [Multer use guide](https://github.com/expressjs/multer), Use DiskStorage in multer
+- req : we configured the request as json in express, file : multer is used when it has file for implementing a usage of file, cb : callback
+```js
+import multer from "multer";
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, "./public/temp")  //cb callback & path to destination where to keep all the files
+    },
+    filename: function (req, file, cb) { // unique filename for pro project
+    //   const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    //   cb(null, file.fieldname + '-' + uniqueSuffix)
+        cb(null, file.originalname)
+    }
+  })
+  
+export  const upload = multer({ 
+    storage: storage // or just writing storage once also works 
+})
+```
+- storage method made to be used as middleware
