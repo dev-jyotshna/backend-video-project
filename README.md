@@ -195,6 +195,7 @@ export {app}
 //require('dotenv').config({path: './env'})
 import dotenv from "dotenv"
 import connectDB from "./db/index.js"
+import {app} from './app.js'
 
 dotenv.config({
     path: './env'
@@ -850,3 +851,104 @@ export  const upload = multer({
         500 Internal Server Error
         504 Gateway timeout
     ```
+## Router and controller w debugging
+- For better logic building, make more controllers
+- Register user
+- create file src/controllers/user.controller.js
+- using helper function in file asyncHandler.js write below code in user.controller.js:
+```js
+import { asyncHandler } from "../utils/asyncHandler.js";
+
+const registerUser = asyncHandler( async (req, res) => {
+    res.status(200).json({
+        message: "ok"
+    })
+})
+
+export {registerUser}
+```
+- done with method , nodejs runs a method when a url hits
+- the url uses routes that are in mentioned in routes folder
+- create file src/routes/user.routes.js and write below code in it:
+```js
+import { Router } from "express";
+
+const router = Router()
+
+
+
+export default router 
+```
+- before since we were using both the controllers and routers in app.js there were no issues
+- Now as we have separated both we need middleware to get the router
+- add the below code to src/app.js
+```js
+import express from "express"
+import cors from "cors"
+import cookieParser from "cookie-parser"
+
+const app = express()
+app.use(cors({
+    origin: process.env.CORS_ORIGIN,
+    credentials: true
+}))
+
+app.use(express.json({limit: "16kb"}))
+app.use(express.urlencoded({extended: true, limit: "16kb"}))
+app.use(express.static("public"))
+app.use(cookieParser())
+
+// routes import
+import userRouter from './routes/user.routes.js'
+
+
+// routes declaration
+app.use("/users", userRouter) // this becomes prefix for user.routes.js
+
+export {app}
+```
+- app.use for middleware, when /users is used the control is given to userRouter that was used from src/routes/user.routes.js
+```js
+import { Router } from "express";
+import { registerUser } from "../controllers/user.controller.js";
+
+const router = Router()
+
+router.route("/register").post(registerUser)
+
+export default router 
+```
+- So when /register route is called , http://localhost:8000/users/register is used
+- Declare api and its version explicitly in app.js in place of /users to /api/v1/users => 
+    - http://localhost:8000/api/v1/users/register
+- update below code in src/app.js
+```js
+// routes import
+import userRouter from './routes/user.routes.js'
+
+
+// routes declaration
+app.use("/api/v1/users", userRouter) // this becomes prefix for user.routes.js
+```
+- npm run dev 
+- App CRASHED
+- BUG: backtrack the bug from user.routes.js , add return in asyncHandler.js to fix bug
+- alias use while importing only if export default
+- {} and without alias imort while only export is used
+- update code in asyncHandler.js with code below:
+```js
+//asyncHandler promises type
+const asyncHandler = (requestHandler) => {
+    //BUG FIX use return
+    return (req, res, next) => {
+        Promise.resolve(requestHandler(req, res, next)).catch((err) => next(err))
+    }
+}
+
+export {asyncHandler}
+```
+- no need of npm run dev as use of nodemon is done previously
+- use thunderclient for API testing plugin for vscode
+- postman use for api development
+- download post man on desktop
+- in collection add the url http://localhost:8000/api/v1/users/register in POST of postman then we'll get the correct result, or else we'll get 404 Not Found
