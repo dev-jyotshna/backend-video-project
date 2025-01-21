@@ -780,3 +780,73 @@ export  const upload = multer({
 })
 ```
 - storage method made to be used as middleware
+
+## HTTP crash course
+- Sending data in plain text
+- Transfer in an optimized way so that data structure is not used which is very expensive(DSA knowledge)
+- Transfering work on network, computer having OS(networking role)
+- OS will stored and use that data (OS knowledge used)
+- One server(mobile app/ client) to other server(server)
+- url, uri, urn
+
+- What are HTTP headers
+    - metadata : key-value pairs, header are sent along with request & response
+    - what headers do? Used for Caching, Authentication(bearer token, session token, cookies, session values), manage state(guest user, logged in user, user state)
+    - x prefix(deprecated) in 2012 for every header
+    - No official header category but to understand header better 
+        1. Request Headers - from Client data
+        2. Response Headers - from Server data
+        3. Representation Headers - encoding/ compression(graph chart zerodha razorpay)
+        4. Payload Headers - data
+    - Most COMMON headers
+        - Accept : application/ json
+        - User-Agent : postman, browser name/ engine name(suggest mobile app based on this info)
+        - Authorization : commonly used in front-end , bearer___jwt token___
+        - Content-type : image, pdf
+        - Cookie : object, unique code, time user logged in
+        - Cache-control : data expire after 3600 secs
+    - Headers in production grade apps:
+        - CORS:
+            - Access-Control-Allow-Origin
+            - Access-Control-Allow-Credentials
+            - Access-Control-Allow-Method
+        - Security:
+            - Cross-Origin-Embedder-Policy
+            - Cross-Origin-Opener-Policy
+            - Content-Security-Policy
+            - X-XSS-Protection
+    
+    - HTTP methods: Basic set of operations that can be used to interact with server
+        - GET : retrieve a resource
+        - HEAD : No message body (response headers only)
+        - OPTIONS : what operations are available at this endpoint
+        - TRACE : loopback test (get some data), determine route request through proxies
+        - DELETE : remove a resource
+        - PUT : replace a resource
+        - POST : interact with resource(motly add)
+        - PATCH : change part of a resource
+        - etc
+    - HTTP Status Code
+        - 1xx : Informational
+        - 2xx : Success
+        - 3xx : Redirection
+        - 4xx : Client error
+        - 5xx : Server error
+    ```text
+        100 Continue
+        101 Switching Protocols
+        102 Processing
+        200 Ok
+        201 Created
+        202 Accepted
+        203 Non-Authoritative Information
+        204 No Content
+        307 Temporiry redirect
+        308 Permanent redirect
+        400 Bad request
+        401 Unauthorized
+        402 Payment required
+        404 Not Found
+        500 Internal Server Error
+        504 Gateway timeout
+    ```
