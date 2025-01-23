@@ -952,3 +952,154 @@ export {asyncHandler}
 - postman use for api development
 - download post man on desktop
 - in collection add the url http://localhost:8000/api/v1/users/register in POST of postman then we'll get the correct result, or else we'll get 404 Not Found
+
+## Logic building Register controller
+- To get details from the user we take them from frontend, since we don't have a frontend yet we take it from postman
+- rewrite the registerUser function to be used
+- write steps we need to take 
+- which attribute in user controller should be given preference, like username in instagram
+- when entry is created in the db , and we get a response for it we get all the fields in that entry 
+- so we will also get password in the response even though we've already encrypted it , we still don't want password in our response
+```js
+import { asyncHandler } from "../utils/asyncHandler.js";
+
+const registerUser = asyncHandler( async (req, res) => {
+    // takes input from user in frontend
+    // validation - not empty or incorrect format email or username
+    // check if user already exists: username, email
+    // check for coverImage, check for avatar(while uploading check if multer uploaded it)
+    // upload them to cloudinary, check avatar uploaded properly
+    // create user object - create entry in db
+    // remove password and refresh token field from response
+    // check for user creation
+    // return response
+
+    const { fullname, email, username, password } = req.body
+    console.log("email: ", email)
+})
+
+export {registerUser}
+```
+- params in postman is also a way to send the request
+```json
+{
+    "email": "example1@gmail.com",
+    "password": ""
+}
+```
+- add above code into postman body > json
+- we can only handle data that we get from the request, we haven't done the file handling yet
+- For file handling (here inject middleware upload from multer)
+- import upload from src/middleware/multer.middleware.js to src/routes/user.routes.js
+- while adding user.routes.js we use the fields name that is used to help communicate b/w frontend and backend
+- code in src/routes/user.routes.js:
+```js
+import { Router } from "express";
+import { registerUser } from "../controllers/user.controller.js";
+import { upload } from "../middlewares/multer.middleware.js"
+
+const router = Router()
+
+router.route("/register").post(
+    upload.fields([
+        {
+            name: "avatar",
+            maxCount: 1
+        },
+        {
+            name: "coverImage",
+            maxCount: 1
+        }
+    ]),
+    registerUser
+)
+
+export default router 
+```
+- use some function in user.controller.js to validate the fields for not being empty
+- express gives access to req.body
+- multer middleware adds more fields in request, it gives access to req.files 
+- added code below in src/controllers/user.controller.js
+```js
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js"
+import { User } from "../models/user.model.js"
+import { uploadOnCloudinary } from "../utils/cloudinary.js"
+import { ApiResponse } from "../utils/ApiResponse.js"
+
+const registerUser = asyncHandler( async (req, res) => {
+    //1. takes input from user in frontend
+    //2. validation - not empty or incorrect format email or username
+    //3. check if user already exists: username, email
+    //4. check for coverImage, check for avatar(while uploading check if multer uploaded it)
+    //5. upload them to cloudinary, check avatar uploaded properly
+    //6. create user object - create entry in db
+    //7. remove password and refresh token field from response
+    //8. check for user creation
+    //9. return response
+
+    //1.
+    const { fullname, email, username, password } = req.body
+    console.log("email: ", email)
+
+    //2.
+    if (
+        [fullname, email, username, password].some((field) => field?.trim() === "")
+    ){
+        throw new ApiError(400, "All fields are required")
+    }
+
+    //3.
+    const existedUser = User.findOne({
+        $or : [{ username }, { email }]
+    })
+
+    if (existedUser) {
+        throw new ApiError(409, "User with email or username already exist")
+    }
+
+    //4.
+    const avatarLocalPath = req.files?.avatar[0]?.path
+    const coverImageLocalPath = req.files?.coverImage[0]?.path
+
+    if (!avatarLocalPath) {
+        throw new ApiError(400, "Avatar file is required")
+    }
+
+    //5.
+    const avatar = await uploadOnCloudinary(avatarLocalPath)
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+
+    if(!avatar){
+        throw new ApiError(400, "Avatar file is required")
+    }
+
+    //6.
+    const user = await User.create({
+        fullname,
+        avatar: avatar.url,
+        coverImage: coverImage?.url || "",
+        email,
+        password,
+        username: username.toLowerCase()
+    })
+
+    //7.
+    const createdUser = await Uset.findbyId(user._id).select(
+        "-password -refreshToken"
+    )
+
+    //8. 
+    if (!createdUser) {
+        throw new ApiError(500, "Something went wrong while registering the user")
+    }
+
+    //9.
+    return res.status(201).json(
+        new ApiResponse(200, createdUser, "User registered Successfully")
+    )
+
+})
+
+export {registerUser}
+```
