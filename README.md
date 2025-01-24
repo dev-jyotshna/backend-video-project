@@ -150,7 +150,7 @@ export default connectDB
 ```
 - add below code in open index.js(This works but shows inconsistency in code)
 ```js
-require('dotenv').config({path: './env'})
+require('dotenv').config({path: './.env'})
 import connectDB from "./db"
 
 connectDB()
@@ -161,7 +161,7 @@ import dotenv from "dotenv"
 import connectDB from "./db"
 
 dotenv.config({
-    path: './env'
+    path: './.env'
 })
 
 connectDB()
@@ -192,13 +192,13 @@ export {app}
 ```
 - since the db/index.js is sending connectDB in async it also sends a promise, to handle that promise we use then(success db connect) and catch( handle error) into the open index.js file
 ```js
-//require('dotenv').config({path: './env'})
+//require('dotenv').config({path: './.env'})
 import dotenv from "dotenv"
 import connectDB from "./db/index.js"
 import {app} from './app.js'
 
 dotenv.config({
-    path: './env'
+    path: './.env'
 })
 
 connectDB()
@@ -1085,7 +1085,7 @@ const registerUser = asyncHandler( async (req, res) => {
     })
 
     //7.
-    const createdUser = await Uset.findbyId(user._id).select(
+    const createdUser = await Uset.findById(user._id).select(
         "-password -refreshToken"
     )
 
@@ -1103,3 +1103,42 @@ const registerUser = asyncHandler( async (req, res) => {
 
 export {registerUser}
 ```
+
+## Use postman for backend
+- in postman body/form-data
+- we can also send data from body/raw/json but with it we can't send file in the software, so we use the above option
+- added key and value fields in postman, run
+- encountered error user alread exits(which is not correct)
+- added await in user.controller.js in line 30 for when accessing database
+```js
+    const existedUser = await User.findOne({
+```
+- work and see the changes in cloudinary media explorer, mongodb atlas cluster collections, and local upload in our backend server in folder public/temp
+- use below code in user.controller.js to know the structure of req.body and req.files
+```js
+    console.log("Req.body", req.body);
+    console.log("Req.files", req.files);
+```
+- situation check: what happens if the coverImage is not sent(for this uncheck the coverImage in postman)
+    - Got Error : TypeError: Cannot read properties of undefined 
+    - right now the coverImageLocalPath does not handle undefined situations 
+    - add below code in place of previous coverImageLocalPath
+```js
+    //4.
+    const avatarLocalPath = req.files?.avatar[0]?.path
+    //const coverImageLocalPath = req.files?.coverImage[0]?.path
+
+    let coverImageLocalPath;
+    if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+        coverImageLocalPath = req.files.coverImage[0].path
+    }
+```
+
+- Share collections so that we don't need to fill the fields again for every request url
+- in postman, new collection, named "videobackend", new folder "user", add post request, save
+- in postman, since "http://localhost:8000/api/v1" will be common in all the request we make a new environment named "video-backend" and add variable "server" with initial and current value as "http://localhost:8000/api/v1", then save
+- we can use this environment variable in collection (link the environment variable to collection named "videobackend" from the right-hand side dropdown)
+- now we can use "{{server}}/users/register" in the request field in collections
+- now add all the fields like fullname, email, password, , username, avatar, coverImage in this register request to check if all the things are working properly
+- Here after getting the response , now I can save the state of the register request
+    - so that i just have to change the value of the fields i need to check register API
