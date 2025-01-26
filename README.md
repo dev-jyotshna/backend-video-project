@@ -1645,3 +1645,8 @@ export {
     refreshAccessToken
 }
 ```
+
+- added route for it using code below in user.route.js after route for logout
+```js
+router.route("/refresh-token").post(refreshAccessToken)
+```
