@@ -1589,3 +1589,59 @@ export {
 }
 ```
 
+## Access token and refresh token
+- Access tokens are short lived and need login details(email and password) again (saved with user)
+- Refresh token (session storage ) were introduced by google , stored in database, 401 request(access token invalidated) to the user, it  gets to frontend person , so instaed of logging in again , a code is added and used so if 401 request is received the user can hit a particular endpoint and refresh its token(gets new token)
+- to get the new token, send our refresh token with the request, then we can match this refresh token with the refresh token in the database, if it matches the session restarts
+- so send the access token in the cookies and save a new refresh token in the database again
+- to make the endpoint use code below in user.controller.js after const logoutUser
+```js
+const refreshAccessToken = asyncHandler(async (req, res) => {
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
+
+    if (!incomingRefreshToken) {
+        throw new ApiError(401, "Unauthorized request")
+    }
+
+    try {
+        const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
+    
+        const user = await User.findById(decodedToken?._id)
+        if (!user) {
+            throw new ApiError(401, "Invalid refresh token")
+        }
+    
+        if (incomingRefreshToken !== user?.refreshToken) {
+            throw new ApiError(401, "Refresh token is expired or used")
+        }
+    
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+        
+        const {accessToken, newRefreshToken} = await generateAccessAndRefreshTokens(user._id)
+    
+        return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", newRefreshToken, options)
+        .json(
+            new ApiResponse(
+                200,
+                {accessToken, refreshToken: newRefreshToken},
+                "Access token refreshed"
+            )
+        )
+    } catch (error) {
+        throw new ApiError(401, error?.message || "Invalid refresh token")
+    }
+})
+
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken
+}
+```
