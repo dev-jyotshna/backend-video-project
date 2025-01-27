@@ -1650,3 +1650,29 @@ export {
 ```js
 router.route("/refresh-token").post(refreshAccessToken)
 ```
+
+## Writing update controllers for user
+- coding edit functionality
+- subscription a new model => has channel & subscriber
+- channel is a user & subscriber is also a user
+- these users are stored in another place to match their ids
+- add src/models/subcription.model.js
+```js
+import mongoose, { Schema } from "mongoose";
+
+const subscriptionSchema = new Schema(
+    {
+        subscriber: {
+            type: Schema.Types.ObjectId,
+            ref: "User"
+            //one who is subscribing
+        },
+        channel: {
+            type: Schema.Types.ObjectId,
+            ref: "User"
+            //one to whom 'subscriber' is subscribing
+        }
+    }, { timestamps: true })
+
+export const Subscription = mongoose.model("Subscription", subscriptionSchema)
+```
