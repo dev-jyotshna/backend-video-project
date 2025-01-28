@@ -1676,3 +1676,172 @@ const subscriptionSchema = new Schema(
 
 export const Subscription = mongoose.model("Subscription", subscriptionSchema)
 ```
+- for updating the password to a newpassword we add the code below in src/controllers/user.controller.js
+```js
+const changeCurrentPassword = asyncHandler(async(req, res) => {
+    const {oldPassword, newPassword} = req.body
+
+    const user = await User.findById(req.user?._id)
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+
+    if (!isPasswordCorrect) {
+        throw new ApiError(400, "Invalid old password")
+    }
+
+    user.password = newPassword
+    await user.save({validateBeforeSave: false})
+
+    return res
+    .status(200)
+    .json( new ApiResponse(200, {}, "Password changed successfully"))
+})
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    changeCurrentPassword
+}
+```
+- to get current user
+- as we've used injected the user in req.user (within the request) in middleware auth.middleware.js
+- we can easily get the current user from the request itself
+- add the below code in user.controller.js
+```js
+const getCurrentUser = asyncHandler( async (req, res) => {
+    return res
+    .status(200)
+    .json(new ApiResponse(
+        200, 
+        {req.user}, 
+        "current user fetched successfully"
+    ))
+})
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    changeCurrentPassword,
+    getCurrentUser
+}
+```
+- to update the other details of the user, as a backend you need to decide what a user is allowed to change like a username is not allowed to change repeatedly in youtube
+- when updating files like profile images use another endpoint to be hit for better approach at production level. (changing image, updating it and saving it all at one endpoint for better congestion in the network )
+- in findByIdAndUpdate => the 3rd param {new: true}, returns the info after updating it.
+```js
+const updateAccountDetails = asyncHandler( async (req, res) => {
+    const {fullname, email} = req.body
+
+    if (!fullname || !email) {
+        throw new ApiError(400, "All fields are required")
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                fullname: fullname,
+                email: email
+            }
+        },
+        {new: true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(
+        200,
+        user,
+        "Account details updated successfully"
+    ))
+})
+
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    changeCurrentPassword,
+    getCurrentUser,
+    updateAccountDetails
+
+}
+```
+- while updating files we need to keep attention on the middleware used, 
+    1. multer middleware to accept files
+    2. only users that are logged in can update their files
+- make sure of these when writing the routes
+- we only need to update the avatar url , as we have got the whole object of avatar from cloudinary
+- and cover image update to another endpoint
+- add below code in src/controllers/user.controller.js
+```js
+const updateUserAvatar = asyncHandler( async (req, res) => {
+    const avatarLocalPath = req.files?.path
+
+    if (! avatarLocalPath) {
+        throw new ApiError(400, "Avatar file is missing")
+    }
+
+    const avatar = await uploadOnCloudinary(avatarLocalPath)
+
+    if (!avatar.url) {
+        throw new ApiError(400, "Error while uploading avatar")
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                avatar: avatar.url
+            }
+        },
+        {new: true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json( new ApiResponse(200, user, "Avatar image updated successfully"))
+})
+
+const updateUserCoverImage = asyncHandler( async (req, res) => {
+    const coverImageLocalPath = req.files?.path
+
+    if (! coverImageLocalPath) {
+        throw new ApiError(400, "Cover image is missing")
+    }
+
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+
+    if (!coverImage.url) {
+        throw new ApiError(400, "Error while uploading cover image")
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                coverImage: coverImage.url
+            }
+        },
+        {new: true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json( new ApiResponse(200, user, "Cover image updated successfully"))
+})
+
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    changeCurrentPassword,
+    getCurrentUser,
+    updateAccountDetails,
+    updateUserAvatar,
+    updateUserCoverImage
+}
+```
+
