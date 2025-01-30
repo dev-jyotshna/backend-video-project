@@ -1845,3 +1845,22 @@ export {
 }
 ```
 
+## Understand the subscription Schema
+- Theory
+- Explain database 
+- create a controller that will give back the user's profile getUserChannelProfile
+- for subscribers count 
+    1. we can have an array in user model but it will be inefficient as their are even millions of subscribers
+    2. if we use subscriptions model's fields subscriber and channel
+
+- User -> a, b, c, d, e
+- channel -> chaiaurcode, freecodecamp
+- both are users but i am treating them differently
+- one new document structure (i) subscriber (ii) channel
+- everytime a channel is subscribed a new document is created
+![alt text](<Screenshot 2025-01-28 225636.png>)
+- IMPORTANT: how will we count and know subscribers of a channel?
+- check and count for all the documents that have channel as chaiaurcode (use aggregation pipeline)
+
+- IMPORTANT: which channels have I as "user c" subscribed?
+- find documents with subscriber c and return list of channels now
