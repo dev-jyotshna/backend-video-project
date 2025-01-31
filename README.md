@@ -1864,3 +1864,119 @@ export {
 
 - IMPORTANT: which channels have I as "user c" subscribed?
 - find documents with subscriber c and return list of channels now
+
+## Learn mongodb aggregation pipeline
+- Now we will join our subscription model to user model ( aka left join): join the information from subscription model in users model
+- using aggregation pipeline from mongodb
+- data form filteration in one stage will be the accepted data to be worked on in the next stage
+```js
+db.orders.aggregate( [
+
+   // Stage 1: Filter pizza order documents by pizza size
+   {
+      $match: { size: "medium" }
+   },
+
+   // Stage 2: Group remaining documents by pizza name and calculate total quantity
+   {
+      $group: { _id: "$name", totalQuantity: { $sum: "$quantity" } }
+   }
+
+] )
+```
+- use author's id in book id and when we leftjoin them, wherever the author's id was used there author's info will go in the document.
+- for stage 1 us $match to find a specific username etc.
+- since we need to know how the two documents will join we will use $lookup for stage 1
+- user $addFields in stage 2 this adds new fields, firstname + lastname = fullname, calculate fullname field fron firstname and lastname
+- since normally we have an array sen to us in the output of pipeline, but as we have added $addFields as stage 2 we get the particular $fieldname as object in dropdown using $first or $arrayElemAt: ["$fieldname", 0]
+- $project sends selected info instead of all the info the query is asking for
+- what datatype does aggregate return , do console.log for the variable that holds it
+- to find the no. of subscribers we add the below code in user.controller.js
+```js
+const getUserChannelProfile = asyncHandler( async (req,res) => {
+    const {username} = req.params
+
+    if (!username?.trim) {
+        throw new ApiError(400, "username is missing")
+    }
+
+    const channel = await User.aggregate([
+        {
+            $match: {
+                username: username?.toLowerCase()
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+                //to find channel's subscribers
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+                //to find channels i have subscribed 
+            }
+        },
+        {
+            $addFields:{
+                subscribersCount: {
+                    $size: "$subscribers"
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo"
+                },
+                isSubscribed: {
+                    $cond: { //if then else ( if i am in the subscribers in the document or not)
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]}, // $in looks in array and object
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                fullname: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
+            }
+        }
+    ])
+
+    if (!channel?.length) {
+        throw new ApiError(404, "channel does not exists")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, channel[0], "User channel fetched successfully")
+    )
+
+})
+
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    changeCurrentPassword,
+    getCurrentUser,
+    updateAccountDetails,
+    updateUserAvatar,
+    updateUserCoverImage,
+    getUserChannelProfile
+}
+```
