@@ -1980,3 +1980,85 @@ export {
     getUserChannelProfile
 }
 ```
+
+## Write sub pipeline and routes
+- pipeline and complex data structure used and its process
+- to GET THE WATCH HISTORY we click watch history then video's thumbnail and title is shown
+- $match _id with req.user._id
+- join user's watch history with video's _id by video's document
+- so when we lookup videos from watchHistory of user we get the array of video _id(we get multiple document) but to get the owner (which is also a user) we need to do another nested lookup(or subpipeline for joining the info of the owner with the video's document)
+
+- Interview question: what do we get when we use req.user._id? mongodb id -> NO
+    - we get a string that gets converted while going internally through mongoose to convert to mongodb id
+
+```js
+const getWatchHistory = asyncHandler( async (req, res) => {
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullname: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+
+    ])
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user[0].watchHistory,
+            "Eatch history fetched successfully"
+        )
+    )
+})
+
+export {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    changeCurrentPassword,
+    getCurrentUser,
+    updateAccountDetails,
+    updateUserAvatar,
+    updateUserCoverImage,
+    getUserChannelProfile,
+    getWatchHistory
+}
+```
+
