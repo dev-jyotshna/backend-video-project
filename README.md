@@ -447,7 +447,7 @@ const videoSchema = new Schema(
 
 export const Video = mongoose.model("Video", videoSchema)
 ```
-- Since the projects get complecated with the attribute watchHistory we use a package named "mongoose-aggregate-paginate-v2" allows us to use aggregation queries, in mongoose we do the insert many, update many
+- Since the projects get complicated with the attribute watchHistory we use a package named "mongoose-aggregate-paginate-v2" allows us to use aggregation queries, in mongoose we do the insert many, update many
 - Many more learning from [mongodb aggregation pipeline ](https://www.mongodb.com/docs/manual/core/aggregation-pipeline/)
 - "npm i mongoose-aggregate-paginate-v2" on terminal
 - for middleware mongoose gives a lot [things](https://mongoosejs.com/docs/middleware.html) and videoSchema.plugin that i can use to add my own plugins, here i can use the mongooseAggregationPaginate for aggregation queries
@@ -2170,3 +2170,123 @@ export default router
 - getChannel profile by using get with "{{server}}/users/c/one"
 - history (bug here as mongoose was not imported), works perfectly
 
+- Starting with models
+    - playlist model : a standalone entity, leftjoin in playlist with videos to make documents, mongodb pipelines
+    - comments model : a standalone entity
+    - like model
+    - tweet model
+
+- IMPORTANT: in comments use 
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+- to retrieve the result in pages instaed of getting everything at once if there is a large dataset
+
+- add below code in src/models/comment.model.js
+```js
+import mongoose, {Schema} from "mongoose";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+
+const commentSchema = new Schema([
+    {
+        content: {
+            type: String,
+            required: true
+        },
+        video: {
+            type: Schema.Types.ObjectId,
+            ref: "Video"
+        },
+        owner: {
+            type: Schema.Types.ObjectId,
+            ref: "User"
+        }
+
+    },
+    { timestamps: true }
+])
+commentSchema.plugin(mongooseAggregatePaginate)
+
+export const Comment = mongoose.model("Comment", commentSchema)
+```
+- add below code in src/models/playlist.model.js
+```js
+import mongoose, {Schema} from "mongoose";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+
+const playlistSchema = new Schema([
+    {
+        name: {
+            type: String,
+            required: true
+        },
+        description: {
+            type: String,
+            required: true
+        },
+        videos: [
+            {
+                type: Schema.Types.ObjectId,
+                ref: "Video"
+            }
+        ],
+        owner: {
+            type: Schema.Types.ObjectId,
+            ref: "User"
+        }
+    },
+    { timestamps: true}
+])
+playlistSchema.plugin(mongooseAggregatePaginate)
+
+export const Playlist = mongoose.model("Playlist", playlistSchema)
+```
+
+- add below code in src/models/tweet.model.js
+```js
+import mongoose, {Schema} from "mongoose";
+
+const tweetSchema = new Schema([
+    {
+        owner: {
+            type: Schema.Types.ObjectId,
+            ref: "User"
+        },
+        content: {
+            type: String,
+            required: true
+        }
+    },
+    { timestamps: true }
+])
+
+export const Tweet = mongoose.model("Tweet", tweetSchema)
+```
+
+- add below code in src/models/like.model.js
+```js
+import mongoose, {Schema} from "mongoose";
+
+const likeSchema = new Schema([
+    {
+        video: {
+            type: Schema.Types.ObjectId,
+            ref: "Video"
+        },
+        comment: {
+            type: Schema.Types.ObjectId,
+            ref: "Comment"
+        },
+        tweet: {
+            type: Schema.Types.ObjectId,
+            ref: "Tweet"
+        },
+        likedBy: {
+            type: Schema.Types.ObjectId,
+            ref: "User"
+        }
+
+    },
+    { timestamps: true }
+])
+
+export const Like = mongoose.model("Like", likeSchema)
+```
