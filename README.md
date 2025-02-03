@@ -2112,7 +2112,7 @@ router.route("/update-account").patch(verifyJWT, updateAccountDetails)
 
 router.route("/avatar").patch(verifyJWT, upload.single("avatar"), updateUserAvatar)
 
-router.route("/cover-image").patch(verifyJWT, upload.single("/coverImage"), updateUserCoverImage)
+router.route("/cover-image").patch(verifyJWT, upload.single("coverImage"), updateUserCoverImage)
 
 router.route("/c/:username").get(verifyJWT, getUserChannelProfile) // when using req.params
 
@@ -2120,4 +2120,53 @@ router.route("/history").get(verifyJWT, getWatchHistory)
 
 export default router 
 ```
+
+## Overview and how to proceed moving forward
+- user controller, routes
+
+## MongoDB models for like, playlist and tweet
+- FIX BUG : logout incorrectly when checked the database
+    - in user.controller.js change undefined to 1 in line 172 and instead of set operator use unset operator
+```js
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                refreshToken: undefined // line 172
+            }
+        },
+        {
+            new: true
+        }
+    )
+```
+- to 
+```js
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $unset: {
+                refreshToken: 1
+            }
+        },
+        {
+            new: true
+        }
+    )
+```
+- refreshToken: 1
+- undefined, null, does the job but not completely
+- unset operator is used , here pass 1 for the field that you want to unset, here: the refreshToken field
+- use postman to check all the routes
+- register, login, refresh-token, logout,
+- for change-password give the oldPassword and newPassword in body>raw>json
+```js
+{
+    "oldPassword": "12345678",
+    "newPassword": "12345677"
+}
+```
+- current-user
+- getChannel profile by using get with "{{server}}/users/c/one"
+- history (bug here as mongoose was not imported), works perfectly
 
