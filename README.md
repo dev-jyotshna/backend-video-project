@@ -2290,3 +2290,7 @@ const likeSchema = new Schema([
 
 export const Like = mongoose.model("Like", likeSchema)
 ```
+
+- Model, controller, route, app.js
+
+- params is the part you send in the request url parameter or the header part of requests (especially when sent from routes)
